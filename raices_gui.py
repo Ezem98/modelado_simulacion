@@ -6,7 +6,33 @@ matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import numpy as np
+import random
 from numeric_methods import aitken, derivada_numerica, newton_raphson
+
+# Función para calcular t crítico sin scipy
+def t_critical(alpha, df):
+    """Aproximación del valor crítico t usando la distribución normal para df grandes"""
+    if df >= 30:
+        # Para df >= 30, usar aproximación normal
+        z_values = {0.10: 1.645, 0.05: 1.96, 0.01: 2.576}
+        return z_values.get(alpha, 1.96)
+    else:
+        # Valores aproximados de t para df pequeños (95% confianza)
+        t_table = {
+            1: 12.706, 2: 4.303, 3: 3.182, 4: 2.776, 5: 2.571,
+            6: 2.447, 7: 2.365, 8: 2.306, 9: 2.262, 10: 2.228,
+            15: 2.131, 20: 2.086, 25: 2.060, 29: 2.045
+        }
+        # Buscar el valor más cercano
+        if df in t_table:
+            return t_table[df]
+        else:
+            # Interpolación simple
+            keys = sorted(t_table.keys())
+            for i, key in enumerate(keys):
+                if df <= key:
+                    return t_table[key]
+            return 2.045  # Valor por defecto para df > 29
 try:
     from sympy import symbols, simplify, expand, lambdify, factorial, diff, log, gcd, Rational, cancel
 except ImportError:
@@ -37,9 +63,14 @@ class ModeladoSimulacionGUI:
         self.lagrange_frame = ttk.Frame(self.notebook)
         self.notebook.add(self.lagrange_frame, text="Interpolación de Lagrange")
         
+        # Pestaña de integración numérica
+        self.integracion_frame = ttk.Frame(self.notebook)
+        self.notebook.add(self.integracion_frame, text="Integración Numérica")
+        
         # Inicializar pestañas
         self.init_raices_tab()
         self.init_lagrange_tab()
+        self.init_integracion_tab()
 
     def init_raices_tab(self):
         self.method = tk.StringVar(value="newton")
@@ -475,6 +506,601 @@ class ModeladoSimulacionGUI:
         self.resultado_text.delete(1.0, tk.END)
         self.ax_lagrange.clear()
         self.canvas_lagrange.draw()
+    
+    def init_integracion_tab(self):
+        """Inicializar la pestaña de integración numérica"""
+        main_frame = ttk.Frame(self.integracion_frame, padding=10)
+        main_frame.grid(row=0, column=0, sticky='nsew')
+        
+        # Configurar grid
+        self.integracion_frame.columnconfigure(0, weight=1)
+        self.integracion_frame.rowconfigure(0, weight=1)
+        main_frame.columnconfigure(1, weight=1)
+        
+        # Panel izquierdo - Parámetros
+        left_frame = ttk.LabelFrame(main_frame, text="Parámetros de Integración", padding=10)
+        left_frame.grid(row=0, column=0, sticky='nsew', padx=(0, 10))
+        
+        # Variables para detectar cambios
+        self.ultimo_metodo = None
+        self.ultimos_parametros = {}
+        
+        # Función
+        ttk.Label(left_frame, text="Función f(x):").grid(row=0, column=0, sticky='w', pady=2)
+        self.fx_integ_var = tk.StringVar(value="x**2")
+        self.fx_integ_var.trace('w', self.on_parameter_change)
+        ttk.Entry(left_frame, textvariable=self.fx_integ_var, width=20).grid(row=0, column=1, sticky='ew', pady=2)
+        
+        # Límites
+        ttk.Label(left_frame, text="Límite inferior (a):").grid(row=1, column=0, sticky='w', pady=2)
+        self.a_var = tk.StringVar(value="0")
+        self.a_var.trace('w', self.on_parameter_change)
+        ttk.Entry(left_frame, textvariable=self.a_var, width=10).grid(row=1, column=1, sticky='w', pady=2)
+        
+        ttk.Label(left_frame, text="Límite superior (b):").grid(row=2, column=0, sticky='w', pady=2)
+        self.b_var = tk.StringVar(value="1")
+        self.b_var.trace('w', self.on_parameter_change)
+        ttk.Entry(left_frame, textvariable=self.b_var, width=10).grid(row=2, column=1, sticky='w', pady=2)
+        
+        # Subdivisiones
+        ttk.Label(left_frame, text="Subdivisiones (n):").grid(row=3, column=0, sticky='w', pady=2)
+        self.n_var = tk.StringVar(value="1000")
+        self.n_var.trace('w', self.on_parameter_change)
+        ttk.Entry(left_frame, textvariable=self.n_var, width=10).grid(row=3, column=1, sticky='w', pady=2)
+        
+        # Tolerancia
+        ttk.Label(left_frame, text="Tolerancia (adaptativo):").grid(row=4, column=0, sticky='w', pady=2)
+        self.tol_integ_var = tk.StringVar(value="1e-6")
+        self.tol_integ_var.trace('w', self.on_parameter_change)
+        ttk.Entry(left_frame, textvariable=self.tol_integ_var, width=10).grid(row=4, column=1, sticky='w', pady=2)
+        
+        # Semilla Monte Carlo
+        ttk.Label(left_frame, text="Semilla (Monte Carlo):").grid(row=5, column=0, sticky='w', pady=2)
+        self.semilla_var = tk.StringVar(value="42")
+        self.semilla_var.trace('w', self.on_parameter_change)
+        ttk.Entry(left_frame, textvariable=self.semilla_var, width=10).grid(row=5, column=1, sticky='w', pady=2)
+        
+        # Iteraciones Monte Carlo
+        ttk.Label(left_frame, text="Iteraciones (Monte Carlo):").grid(row=6, column=0, sticky='w', pady=2)
+        self.iter_mc_var = tk.StringVar(value="10000")
+        self.iter_mc_var.trace('w', self.on_parameter_change)
+        ttk.Entry(left_frame, textvariable=self.iter_mc_var, width=10).grid(row=6, column=1, sticky='w', pady=2)
+        
+        # Métodos de integración
+        methods_frame = ttk.LabelFrame(left_frame, text="Métodos de Integración", padding=5)
+        methods_frame.grid(row=7, column=0, columnspan=2, sticky='ew', pady=10)
+        
+        # Botones de métodos
+        ttk.Button(methods_frame, text="Rectángulo\n(Grado 0)", command=lambda: self.calcular_integracion('rectangulo')).grid(row=0, column=0, padx=2, pady=2)
+        ttk.Button(methods_frame, text="Trapezoidal\n(Grado 1)", command=lambda: self.calcular_integracion('trapezoidal')).grid(row=0, column=1, padx=2, pady=2)
+        ttk.Button(methods_frame, text="Simpson 1/3\n(Grado 2)", command=lambda: self.calcular_integracion('simpson13')).grid(row=0, column=2, padx=2, pady=2)
+        
+        ttk.Button(methods_frame, text="Simpson 3/8\n(Grado 3)", command=lambda: self.calcular_integracion('simpson38')).grid(row=1, column=0, padx=2, pady=2)
+        ttk.Button(methods_frame, text="Boole\n(Grado 4)", command=lambda: self.calcular_integracion('boole')).grid(row=1, column=1, padx=2, pady=2)
+        ttk.Button(methods_frame, text="Romberg\n(Simpson)", command=lambda: self.calcular_integracion('romberg')).grid(row=1, column=2, padx=2, pady=2)
+        
+        ttk.Button(methods_frame, text="Monte Carlo\n(Estocástico)", command=lambda: self.calcular_integracion('montecarlo'), width=15).grid(row=2, column=0, columnspan=3, pady=5)
+        
+        # Botones de control
+        control_frame = ttk.Frame(left_frame)
+        control_frame.grid(row=8, column=0, columnspan=2, pady=10)
+        ttk.Button(control_frame, text="Limpiar Tabla", command=self.limpiar_integracion).grid(row=0, column=0, padx=5)
+        ttk.Button(control_frame, text="Ver Fórmulas", command=self.mostrar_formulas).grid(row=0, column=1, padx=5)
+        ttk.Button(control_frame, text="Comparar Métodos", command=self.comparar_metodos).grid(row=0, column=2, padx=5)
+        
+        # Panel derecho - Visualización y resultados
+        right_frame = ttk.Frame(main_frame)
+        right_frame.grid(row=0, column=1, sticky='nsew')
+        right_frame.columnconfigure(0, weight=1)
+        right_frame.rowconfigure(1, weight=1)
+        
+        # Gráfico
+        graph_frame = ttk.LabelFrame(right_frame, text="Visualización Gráfica", padding=5)
+        graph_frame.grid(row=0, column=0, sticky='ew', pady=(0, 10))
+        
+        self.fig_integ, self.ax_integ = plt.subplots(figsize=(8, 4))
+        self.canvas_integ = FigureCanvasTkAgg(self.fig_integ, master=graph_frame)
+        self.canvas_integ.get_tk_widget().pack(fill='both', expand=True)
+        
+        # Tabla de resultados y estadísticas
+        results_frame = ttk.LabelFrame(right_frame, text="Resultados Detallados - Monte Carlo", padding=5)
+        results_frame.grid(row=1, column=0, sticky='nsew')
+        results_frame.columnconfigure(0, weight=1)
+        results_frame.rowconfigure(0, weight=1)
+        
+        # Notebook para organizar resultados
+        self.results_notebook = ttk.Notebook(results_frame)
+        self.results_notebook.pack(fill='both', expand=True)
+        
+        # Pestaña de puntos muestreados
+        puntos_frame = ttk.Frame(self.results_notebook)
+        self.results_notebook.add(puntos_frame, text="Puntos Muestreados")
+        
+        columns = ('i', 'x_i', 'f(x_i)')
+        self.tree_integ = ttk.Treeview(puntos_frame, columns=columns, show='headings', height=10)
+        
+        self.tree_integ.heading('i', text='i')
+        self.tree_integ.heading('x_i', text='x_i')
+        self.tree_integ.heading('f(x_i)', text='f(x_i)')
+        
+        self.tree_integ.column('i', width=50, anchor='center')
+        self.tree_integ.column('x_i', width=120, anchor='center')
+        self.tree_integ.column('f(x_i)', width=120, anchor='center')
+        
+        scrollbar_integ = ttk.Scrollbar(puntos_frame, orient="vertical", command=self.tree_integ.yview)
+        self.tree_integ.configure(yscrollcommand=scrollbar_integ.set)
+        
+        self.tree_integ.pack(side='left', fill='both', expand=True)
+        scrollbar_integ.pack(side='right', fill='y')
+        
+        # Pestaña de estadísticas
+        stats_frame = ttk.Frame(self.results_notebook)
+        self.results_notebook.add(stats_frame, text="Análisis Estadístico")
+        
+        self.stats_text = tk.Text(stats_frame, height=10, wrap=tk.WORD, font=('Courier', 10))
+        stats_scrollbar = ttk.Scrollbar(stats_frame, orient="vertical", command=self.stats_text.yview)
+        self.stats_text.configure(yscrollcommand=stats_scrollbar.set)
+        
+        self.stats_text.pack(side='left', fill='both', expand=True)
+        stats_scrollbar.pack(side='right', fill='y')
+        
+        # Resultado final
+        self.resultado_integ_var = tk.StringVar(value="Resultado: -")
+        ttk.Label(right_frame, textvariable=self.resultado_integ_var, font=('Arial', 10, 'bold')).grid(row=2, column=0, pady=5)
+        
+        # Inicializar estado
+        self.actualizar_parametros_guardados()
+    
+    def rectangulo_simple(self, f, a, b, n):
+        """Método del rectángulo (punto medio)"""
+        h = (b - a) / n
+        suma = 0
+        for i in range(n):
+            x_medio = a + (i + 0.5) * h
+            suma += f(x_medio)
+        return h * suma
+    
+    def trapezoidal_simple(self, f, a, b, n):
+        """Método trapezoidal"""
+        h = (b - a) / n
+        suma = f(a) + f(b)
+        for i in range(1, n):
+            suma += 2 * f(a + i * h)
+        return (h / 2) * suma
+    
+    def simpson_13(self, f, a, b, n):
+        """Método de Simpson 1/3"""
+        if n % 2 != 0:
+            n += 1  # Asegurar que n sea par
+        h = (b - a) / n
+        suma = f(a) + f(b)
+        
+        for i in range(1, n):
+            if i % 2 == 0:
+                suma += 2 * f(a + i * h)
+            else:
+                suma += 4 * f(a + i * h)
+        
+        return (h / 3) * suma
+    
+    def simpson_38(self, f, a, b, n):
+        """Método de Simpson 3/8"""
+        while n % 3 != 0:
+            n += 1  # Asegurar que n sea múltiplo de 3
+        h = (b - a) / n
+        suma = f(a) + f(b)
+        
+        for i in range(1, n):
+            if i % 3 == 0:
+                suma += 2 * f(a + i * h)
+            else:
+                suma += 3 * f(a + i * h)
+        
+        return (3 * h / 8) * suma
+    
+    def boole(self, f, a, b, n):
+        """Método de Boole"""
+        while n % 4 != 0:
+            n += 1  # Asegurar que n sea múltiplo de 4
+        h = (b - a) / n
+        suma = 7 * (f(a) + f(b))
+        
+        for i in range(1, n):
+            if i % 4 == 0:
+                suma += 14 * f(a + i * h)
+            elif i % 2 == 0:
+                suma += 12 * f(a + i * h)
+            else:
+                suma += 32 * f(a + i * h)
+        
+        return (2 * h / 45) * suma
+    
+    def monte_carlo(self, f, a, b, n, semilla=None):
+        """Método de Monte Carlo con análisis estadístico"""
+        if semilla:
+            random.seed(semilla)
+        
+        puntos = []
+        valores_fx = []
+        suma = 0
+        
+        for i in range(n):
+            x = random.uniform(a, b)
+            fx = f(x)
+            valores_fx.append(fx)
+            suma += fx
+            if i < 10:  # Guardar primeros 10 puntos para mostrar
+                puntos.append((i+1, x, fx))
+        
+        # Cálculos estadísticos
+        integral_estimada = (b - a) * suma / n
+        media_fx = suma / n
+        
+        # Desviación estándar de f(x)
+        varianza_fx = sum((fx - media_fx)**2 for fx in valores_fx) / (n - 1)
+        desviacion_estandar = math.sqrt(varianza_fx)
+        
+        # Error estándar de la integral
+        error_estandar = (b - a) * desviacion_estandar / math.sqrt(n)
+        
+        # Intervalo de confianza (95% por defecto)
+        nivel_confianza = 0.95
+        alpha = 1 - nivel_confianza
+        t_critico = t_critical(alpha/2, n - 1)
+        
+        margen_error = t_critico * error_estandar
+        intervalo_inferior = integral_estimada - margen_error
+        intervalo_superior = integral_estimada + margen_error
+        
+        estadisticas = {
+            'integral_estimada': integral_estimada,
+            'desviacion_estandar': desviacion_estandar,
+            'error_estandar': error_estandar,
+            'intervalo_confianza': (intervalo_inferior, intervalo_superior),
+            'nivel_confianza': nivel_confianza,
+            'n_muestras': n
+        }
+        
+        return integral_estimada, puntos, estadisticas
+    
+    def calcular_integracion(self, metodo):
+        """Calcular integración según el método seleccionado"""
+        try:
+            # Obtener parámetros
+            fx_expr = self.fx_integ_var.get()
+            a = float(self.a_var.get())
+            b = float(self.b_var.get())
+            n = int(self.n_var.get())
+            
+            # Crear función
+            f = safe_lambda(fx_expr)
+            
+            # Calcular según método
+            if metodo == 'rectangulo':
+                resultado = self.rectangulo_simple(f, a, b, n)
+                metodo_nombre = "Rectángulo (Punto Medio)"
+            elif metodo == 'trapezoidal':
+                resultado = self.trapezoidal_simple(f, a, b, n)
+                metodo_nombre = "Trapezoidal"
+            elif metodo == 'simpson13':
+                resultado = self.simpson_13(f, a, b, n)
+                metodo_nombre = "Simpson 1/3"
+            elif metodo == 'simpson38':
+                resultado = self.simpson_38(f, a, b, n)
+                metodo_nombre = "Simpson 3/8"
+            elif metodo == 'boole':
+                resultado = self.boole(f, a, b, n)
+                metodo_nombre = "Boole"
+            elif metodo == 'montecarlo':
+                semilla = int(self.semilla_var.get()) if self.semilla_var.get() else None
+                n_mc = int(self.iter_mc_var.get())
+                resultado, puntos, estadisticas = self.monte_carlo(f, a, b, n_mc, semilla)
+                metodo_nombre = "Monte Carlo"
+                self.mostrar_puntos_mc(puntos)
+                self.mostrar_estadisticas_mc(estadisticas, fx_expr)
+            else:
+                resultado = 0
+                metodo_nombre = "Desconocido"
+            
+            # Mostrar resultado
+            if metodo == 'montecarlo':
+                self.resultado_integ_var.set(f"∫ {fx_expr} dx = {resultado:.6f} ± {estadisticas['error_estandar']:.6f} ({metodo_nombre})")
+            else:
+                self.resultado_integ_var.set(f"∫ {fx_expr} dx = {resultado:.6f} ({metodo_nombre})")
+                # Limpiar análisis estadístico para métodos no Monte Carlo
+                self.limpiar_estadisticas_no_mc(metodo_nombre, fx_expr, resultado)
+            
+            # Actualizar estado después del cálculo
+            self.ultimo_metodo = metodo_nombre
+            self.actualizar_parametros_guardados()
+            
+            # Graficar
+            self.graficar_integracion(f, a, b, n, metodo, fx_expr)
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error en el cálculo: {e}")
+    
+    def mostrar_puntos_mc(self, puntos):
+        """Mostrar puntos de Monte Carlo en la tabla"""
+        # Limpiar tabla
+        for item in self.tree_integ.get_children():
+            self.tree_integ.delete(item)
+        
+        # Agregar puntos
+        for i, x, fx in puntos:
+            self.tree_integ.insert('', 'end', values=(i, f"{x:.6f}", f"{fx:.6f}"))
+    
+    def mostrar_estadisticas_mc(self, estadisticas, fx_expr):
+        """Mostrar análisis estadístico de Monte Carlo"""
+        self.stats_text.delete(1.0, tk.END)
+        
+        stats_info = f"""ANÁLISIS ESTADÍSTICO - MONTE CARLO
+{'='*50}
+
+Función: {fx_expr}
+Número de muestras: {estadisticas['n_muestras']:,}
+Nivel de confianza: {estadisticas['nivel_confianza']*100:.1f}%
+
+RESULTADOS:
+{'-'*30}
+Integral estimada: {estadisticas['integral_estimada']:.8f}
+Desviación estándar: {estadisticas['desviacion_estandar']:.8f}
+Error estándar: {estadisticas['error_estandar']:.8f}
+
+INTERVALO DE CONFIANZA ({estadisticas['nivel_confianza']*100:.1f}%):
+{'-'*30}
+Límite inferior: {estadisticas['intervalo_confianza'][0]:.8f}
+Límite superior: {estadisticas['intervalo_confianza'][1]:.8f}
+Margen de error: ±{estadisticas['error_estandar']:.8f}
+
+INTERPRETACIÓN:
+{'-'*30}
+Con un {estadisticas['nivel_confianza']*100:.1f}% de confianza, el valor real de la integral
+está entre {estadisticas['intervalo_confianza'][0]:.6f} y {estadisticas['intervalo_confianza'][1]:.6f}.
+
+Precisión relativa: {(estadisticas['error_estandar']/abs(estadisticas['integral_estimada'])*100):.4f}%
+"""
+        
+        self.stats_text.insert(tk.END, stats_info)
+        self.stats_text.config(state='disabled')
+    
+    def limpiar_estadisticas_no_mc(self, metodo_nombre, fx_expr, resultado):
+        """Mostrar información para métodos determinísticos"""
+        self.stats_text.delete(1.0, tk.END)
+        
+        info_deterministica = f"""MÉTODO DETERMINÍSTICO - {metodo_nombre.upper()}
+{'='*50}
+
+Función: {fx_expr}
+Método: {metodo_nombre}
+Resultado: {resultado:.8f}
+
+CARACTERÍSTICAS:
+{'-'*30}
+• Este es un método determinístico
+• No hay variabilidad aleatoria
+• El resultado es exacto para el método usado
+• No se requiere análisis estadístico
+
+PARA ANÁLISIS ESTADÍSTICO:
+{'-'*30}
+Use el método Monte Carlo para obtener:
+• Desviación estándar
+• Error estándar  
+• Intervalo de confianza
+• Análisis de incertidumbre
+
+PRECISIÓN:
+{'-'*30}
+La precisión depende del número de subdivisiones (n)
+y del método seleccionado. Métodos de mayor grado
+(como Simpson o Boole) son más precisos para
+funciones suaves.
+"""
+        
+        self.stats_text.insert(tk.END, info_deterministica)
+        self.stats_text.config(state='disabled')
+    
+    def on_parameter_change(self, *args):
+        """Detectar cambios en parámetros y limpiar resultados obsoletos"""
+        parametros_actuales = self.obtener_parametros_actuales()
+        
+        # Si hay un método ejecutado y los parámetros cambiaron
+        if self.ultimo_metodo and parametros_actuales != self.ultimos_parametros:
+            self.mostrar_parametros_cambiados()
+    
+    def obtener_parametros_actuales(self):
+        """Obtener parámetros actuales como diccionario"""
+        try:
+            return {
+                'fx': self.fx_integ_var.get(),
+                'a': self.a_var.get(),
+                'b': self.b_var.get(),
+                'n': self.n_var.get(),
+                'tol': self.tol_integ_var.get(),
+                'semilla': self.semilla_var.get(),
+                'iter_mc': self.iter_mc_var.get()
+            }
+        except:
+            return {}
+    
+    def actualizar_parametros_guardados(self):
+        """Actualizar parámetros guardados después de un cálculo"""
+        self.ultimos_parametros = self.obtener_parametros_actuales()
+    
+    def mostrar_parametros_cambiados(self):
+        """Mostrar mensaje cuando los parámetros han cambiado"""
+        self.stats_text.delete(1.0, tk.END)
+        
+        mensaje_cambio = f"""PARÁMETROS MODIFICADOS
+{'='*50}
+
+Los parámetros han cambiado desde el último cálculo.
+Los resultados mostrados pueden no ser válidos.
+
+ÚLTIMO MÉTODO EJECUTADO: {self.ultimo_metodo}
+
+PARA ACTUALIZAR RESULTADOS:
+{'-'*30}
+• Presione el botón del método deseado para recalcular
+• Los nuevos parámetros se aplicarán automáticamente
+
+PARÁMETROS ACTUALES:
+{'-'*30}
+• Función: {self.fx_integ_var.get()}
+• Límite inferior: {self.a_var.get()}
+• Límite superior: {self.b_var.get()}
+• Subdivisiones: {self.n_var.get()}
+• Iteraciones MC: {self.iter_mc_var.get()}
+• Semilla MC: {self.semilla_var.get()}
+
+NOTA: Los gráficos y tablas también pueden estar obsoletos.
+"""
+        
+        self.stats_text.insert(tk.END, mensaje_cambio)
+        self.stats_text.config(state='disabled')
+        
+        # Cambiar color del resultado para indicar que está obsoleto
+        self.resultado_integ_var.set(f"{self.resultado_integ_var.get()} [PARÁMETROS MODIFICADOS]")
+    
+    def graficar_integracion(self, f, a, b, n, metodo, fx_expr):
+        """Graficar función y método de integración"""
+        self.ax_integ.clear()
+        
+        # Generar puntos para la función
+        x_vals = np.linspace(a, b, 1000)
+        y_vals = [f(x) for x in x_vals]
+        
+        # Graficar función
+        self.ax_integ.plot(x_vals, y_vals, 'b-', linewidth=2, label=f'f(x) = {fx_expr}')
+        
+        # Área bajo la curva
+        self.ax_integ.fill_between(x_vals, y_vals, alpha=0.3, color='lightblue')
+        
+        # Mostrar subdivisiones para métodos determinísticos
+        if metodo != 'montecarlo':
+            h = (b - a) / n
+            x_points = [a + i * h for i in range(n + 1)]
+            
+            if metodo == 'rectangulo':
+                # Mostrar rectángulos (solo algunos para no saturar)
+                step = max(1, n // 20)
+                for i in range(0, n, step):
+                    x_mid = a + (i + 0.5) * h
+                    height = f(x_mid)
+                    self.ax_integ.bar(x_mid, height, width=h*0.8, alpha=0.5, color='red', edgecolor='darkred')
+            
+            elif metodo == 'trapezoidal':
+                # Mostrar trapezoides (solo algunos)
+                step = max(1, n // 20)
+                for i in range(0, n, step):
+                    x1, x2 = a + i * h, a + (i + 1) * h
+                    y1, y2 = f(x1), f(x2)
+                    self.ax_integ.plot([x1, x2, x2, x1, x1], [0, 0, y2, y1, 0], 'r-', alpha=0.7)
+        
+        else:
+            # Para Monte Carlo, mostrar algunos puntos aleatorios
+            random.seed(int(self.semilla_var.get()) if self.semilla_var.get() else None)
+            x_random = [random.uniform(a, b) for _ in range(min(50, int(self.iter_mc_var.get())))]
+            y_random = [f(x) for x in x_random]
+            self.ax_integ.scatter(x_random, y_random, c='red', s=10, alpha=0.6, label='Puntos Monte Carlo')
+        
+        # Configurar gráfico
+        self.ax_integ.set_xlabel('x')
+        self.ax_integ.set_ylabel('f(x)')
+        self.ax_integ.set_title(f'Integración Numérica - {metodo.title()}')
+        self.ax_integ.grid(True, alpha=0.3)
+        self.ax_integ.legend()
+        self.ax_integ.axhline(y=0, color='k', linestyle='-', alpha=0.3)
+        
+        self.canvas_integ.draw()
+    
+    def limpiar_integracion(self):
+        """Limpiar resultados de integración"""
+        for item in self.tree_integ.get_children():
+            self.tree_integ.delete(item)
+        self.stats_text.delete(1.0, tk.END)
+        self.stats_text.insert(tk.END, "Seleccione un método de integración para ver los resultados aquí.")
+        self.stats_text.config(state='disabled')
+        self.resultado_integ_var.set("Resultado: -")
+        self.ax_integ.clear()
+        self.canvas_integ.draw()
+    
+    def mostrar_formulas(self):
+        """Mostrar fórmulas de integración"""
+        formulas = """
+FÓRMULAS DE INTEGRACIÓN NUMÉRICA
+
+1. Rectángulo (Punto Medio):
+   ∫[a,b] f(x)dx ≈ h * Σf(xi + h/2)
+   donde h = (b-a)/n
+
+2. Trapezoidal:
+   ∫[a,b] f(x)dx ≈ (h/2)[f(a) + 2Σf(xi) + f(b)]
+
+3. Simpson 1/3:
+   ∫[a,b] f(x)dx ≈ (h/3)[f(a) + 4Σf(x_impar) + 2Σf(x_par) + f(b)]
+
+4. Simpson 3/8:
+   ∫[a,b] f(x)dx ≈ (3h/8)[f(a) + 3Σf(x_no_múltiplo_3) + 2Σf(x_múltiplo_3) + f(b)]
+
+5. Monte Carlo:
+   ∫[a,b] f(x)dx ≈ (b-a) * (1/N) * Σf(xi)
+   donde xi son puntos aleatorios en [a,b]
+"""
+        
+        # Crear ventana de fórmulas
+        formula_window = tk.Toplevel(self.master)
+        formula_window.title("Fórmulas de Integración")
+        formula_window.geometry("600x500")
+        
+        text_widget = tk.Text(formula_window, wrap=tk.WORD, padx=10, pady=10)
+        text_widget.pack(fill='both', expand=True)
+        text_widget.insert(tk.END, formulas)
+        text_widget.config(state='disabled')
+    
+    def comparar_metodos(self):
+        """Comparar todos los métodos de integración"""
+        try:
+            fx_expr = self.fx_integ_var.get()
+            a = float(self.a_var.get())
+            b = float(self.b_var.get())
+            n = int(self.n_var.get())
+            f = safe_lambda(fx_expr)
+            
+            # Calcular con todos los métodos
+            resultados = {}
+            resultados['Rectángulo'] = self.rectangulo_simple(f, a, b, n)
+            resultados['Trapezoidal'] = self.trapezoidal_simple(f, a, b, n)
+            resultados['Simpson 1/3'] = self.simpson_13(f, a, b, n)
+            resultados['Simpson 3/8'] = self.simpson_38(f, a, b, n)
+            resultados['Boole'] = self.boole(f, a, b, n)
+            
+            # Monte Carlo (promedio de 5 ejecuciones)
+            mc_results = []
+            for _ in range(5):
+                resultado, _, _ = self.monte_carlo(f, a, b, int(self.iter_mc_var.get()))
+                mc_results.append(resultado)
+            resultados['Monte Carlo (promedio)'] = np.mean(mc_results)
+            resultados['Monte Carlo (desv. std)'] = np.std(mc_results)
+            
+            # Mostrar comparación
+            comp_text = f"COMPARACIÓN DE MÉTODOS\nFunción: {fx_expr}\nIntervalo: [{a}, {b}]\n\n"
+            for metodo, valor in resultados.items():
+                comp_text += f"{metodo:20}: {valor:.8f}\n"
+            
+            # Crear ventana de comparación
+            comp_window = tk.Toplevel(self.master)
+            comp_window.title("Comparación de Métodos")
+            comp_window.geometry("400x300")
+            
+            text_widget = tk.Text(comp_window, wrap=tk.WORD, padx=10, pady=10)
+            text_widget.pack(fill='both', expand=True)
+            text_widget.insert(tk.END, comp_text)
+            text_widget.config(state='disabled')
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error en la comparación: {e}")
 
 
 import sys
