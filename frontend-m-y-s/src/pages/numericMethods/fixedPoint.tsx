@@ -10,6 +10,7 @@ import {
   ModalContent,
   ModalFooter,
   ModalHeader,
+  Switch,
   Table,
   TableBody,
   TableCell,
@@ -44,6 +45,7 @@ export default function FixedPointPage() {
   const [x0, setX0] = useState("");
   const [tolerance, setTolerance] = useState("0.00000001");
   const [iterations, setIterations] = useState("50");
+  const [enableAikten, setEnableAikten] = useState(false);
 
   const { loading, error, data, execute } = useApiCall<FixedPointResponse>();
   const fullRange = useMemo<[number, number]>(
@@ -146,6 +148,7 @@ export default function FixedPointPage() {
           x0: parseFloat(x0),
           tol: parseFloat(tolerance),
           max_iter: parseInt(iterations),
+          habilitar_aikten: enableAikten,
         })
       );
     } catch (err) {
@@ -189,7 +192,7 @@ export default function FixedPointPage() {
               variant="bordered"
               onChange={(e) => setFunctionLatex(e.target.value)}
             />
-            <div className="flex w-full gap-4 py-8 md:py-4">
+            <div className="flex w-full h-fit items-end gap-4 py-8 md:py-4">
               <Input
                 className="w-1/2"
                 label="x0 (Valor inicial)"
@@ -201,6 +204,13 @@ export default function FixedPointPage() {
                 variant="bordered"
                 onChange={(e) => setX0(e.target.value)}
               />
+              <Switch
+                color="secondary"
+                isSelected={enableAikten}
+                onValueChange={setEnableAikten}
+              >
+                Habilitar Aitken
+              </Switch>
             </div>
             <div className="flex w-full gap-4">
               <Input

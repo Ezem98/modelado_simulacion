@@ -19,6 +19,7 @@ export interface FixedPointRequest {
   x0: number;
   tol: number;
   max_iter: number;
+  habilitar_aikten?: boolean;
 }
 
 export interface BinarySearchResponse {
@@ -71,6 +72,12 @@ export interface FixedPointResponse {
         x: number;
         y: number;
       }[];
+    };
+    aitken: {
+      habilitado: boolean;
+      usos: number;
+      descartes: number;
+      eps_denom: number;
     };
   };
 }
