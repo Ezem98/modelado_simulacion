@@ -191,11 +191,11 @@ def lagrange_interpolante(pares, graficar=True, fx=None):
 # Definir la función original (exponencial)
 from sympy import symbols, log
 def fx_logaritmica(x):
-    return log(x+1)
+    return x**2
 
-pares = [(0, fx_logaritmica(0)), (0.6, fx_logaritmica(0.6)), (0.9, fx_logaritmica(0.9))]
+pares = [(0, 1), (1, 3), (2, 2), (3, 5)]
 
-P = lagrange_interpolante(pares, fx=fx_logaritmica)
+P = lagrange_interpolante(pares)
 
 # Verificación: evaluar P(x) en cada punto
 print("\nVerificación:")

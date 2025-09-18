@@ -77,15 +77,7 @@ export default function NavbarComponent() {
                 href="/numericMethods/fixedPoint"
                 startContent={icons.activity}
               >
-                Punto Fijo
-              </DropdownItem>
-              <DropdownItem
-                key="aikten"
-                description="Toma de base el método de punto fijo. Cada 3 iteraciones se evalúa la función g(x) en x0*"
-                href="/numericMethods/aikten"
-                startContent={icons.flash}
-              >
-                Aikten
+                Punto Fijo + Aikten
               </DropdownItem>
               <DropdownItem
                 key="newton-raphson"
@@ -97,7 +89,7 @@ export default function NavbarComponent() {
               </DropdownItem>
             </DropdownMenu>
           </Dropdown>
-          <Dropdown>
+          <Dropdown aria-label="Reconstrucción de funciones" className="w-64">
             <NavbarItem>
               <DropdownTrigger>
                 <Button
@@ -107,7 +99,7 @@ export default function NavbarComponent() {
                   radius="sm"
                   variant="light"
                 >
-                  Aproximaciones
+                  Reconstrucción de funciones
                 </Button>
               </DropdownTrigger>
             </NavbarItem>
@@ -121,6 +113,7 @@ export default function NavbarComponent() {
               <DropdownItem
                 key="lagrange"
                 description="ACME scales apps based on demand and load"
+                href="/functionRebuilding/lagrange"
                 startContent={icons.scale}
               >
                 Lagrange
@@ -134,7 +127,7 @@ export default function NavbarComponent() {
               </DropdownItem>
             </DropdownMenu>
           </Dropdown>
-          <Dropdown>
+          <Dropdown aria-label="Integraciones numéricas" className="w-64">
             <NavbarItem>
               <DropdownTrigger>
                 <Button

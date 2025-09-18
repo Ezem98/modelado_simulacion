@@ -17,7 +17,7 @@ export default function DefaultLayout({
           backgroundImage: `radial-gradient(circle 500px at 50% 200px, #3e3e3e, transparent)`,
         }}
       />
-      
+
       {/* Content Container */}
       <div className="relative z-10 flex flex-col h-screen">
         <NavbarComponent />

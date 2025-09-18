@@ -22,6 +22,18 @@ export interface FixedPointRequest {
   habilitar_aikten?: boolean;
 }
 
+export interface NewtonRaphsonRequest {
+  func: string;
+  df: string;
+  x0: number;
+  tol: number;
+  max_iter: number;
+  graph_mode: string;
+  x_min: number;
+  x_max: number;
+  samples: number;
+}
+
 export interface BinarySearchResponse {
   resultado: {
     raiz: number;
@@ -82,6 +94,57 @@ export interface FixedPointResponse {
   };
 }
 
+export interface NewtonRaphsonResponse {
+  resultado: {
+    raiz: number;
+    iteraciones: {
+      iteracion: number;
+      x0: number;
+      x1: number;
+      error_absoluto: number;
+      error_relativo: number;
+      residuo: number;
+    }[];
+    motivo?: string;
+  };
+  detalles: {
+    convergio: boolean;
+    n_iter: number;
+    x0: number;
+    f_evaluaciones: number;
+    df_evaluaciones: number;
+    tol: number;
+    criterio: string;
+  };
+  extras: {
+    grafico: {
+      x_range: [number, number];
+      f_curve: {
+        x: number;
+        y: number;
+      }[];
+      segmentos: {
+        desde: {
+          x: number;
+          y: number;
+        };
+        hasta: {
+          x: number;
+          y: number;
+        };
+      }[];
+      raiz: {
+        x: number;
+        y: number;
+      };
+      raiz_en_curva: {
+        x: number;
+        y: number;
+      };
+    };
+  };
+}
+
 // Función genérica para hacer requests
 async function apiRequest<T>(
   endpoint: string,
@@ -134,18 +197,12 @@ export const numericMethodsAPI = {
   },
 
   // Newton-Raphson
-  newtonRaphson: async (data: any): Promise<any> => {
+  newtonRaphson: async (
+    data: NewtonRaphsonRequest
+  ): Promise<NewtonRaphsonResponse> => {
     return apiRequest("", {
       method: "POST",
       body: JSON.stringify({ ...data, metodo: "newton_raphson" }),
-    });
-  },
-
-  // Aitken
-  aitken: async (data: any): Promise<any> => {
-    return apiRequest("", {
-      method: "POST",
-      body: JSON.stringify({ ...data, metodo: "aitken" }),
     });
   },
 };

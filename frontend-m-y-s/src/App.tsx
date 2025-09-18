@@ -1,10 +1,10 @@
 import { Route, Routes } from "react-router-dom";
 
-import AboutPage from "@/pages/about";
-import BlogPage from "@/pages/blog";
 import IndexPage from "@/pages/index";
 import BinarySearchPage from "@/pages/numericMethods/binarySearch";
+import LagrangePage from "./pages/functionRebuilding/lagrange";
 import FixedPointPage from "./pages/numericMethods/fixedPoint";
+import NewtonRaphsonPage from "./pages/numericMethods/newtonRaphson";
 
 function App() {
   return (
@@ -15,8 +15,11 @@ function App() {
         path="/numericMethods/binarySearch"
       />
       <Route element={<FixedPointPage />} path="/numericMethods/fixedPoint" />
-      <Route element={<BlogPage />} path="/blog" />
-      <Route element={<AboutPage />} path="/about" />
+      <Route
+        element={<NewtonRaphsonPage />}
+        path="/numericMethods/newtonRaphson"
+      />
+      <Route element={<LagrangePage />} path="/functionRebuilding/lagrange" />
     </Routes>
   );
 }
