@@ -555,8 +555,8 @@ export default function NewtonCotesPage() {
                     radius="sm"
                     value={
                       data.resultado.error_teorico.cota != null
-                        ? Number(
-                            data.resultado.error_teorico.cota
+                        ? Math.abs(
+                            Number(data.resultado.error_teorico.cota)
                           ).toExponential(6)
                         : "N/D"
                     }

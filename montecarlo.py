@@ -86,6 +86,9 @@ class MonteCarloSimulator:
         self.fxs_samples = None
         self.volume = None
         self.convergencia_data = None
+        # datos para integrales múltiples
+        self.double_integral_data = None
+        self.triple_integral_data = None
 
     # -------------------- Simulación MC hit-or-miss --------------------
     def simular(self):
@@ -204,6 +207,7 @@ class MonteCarloSimulator:
         # Ajustar por volumen
         media = np.mean(data) * volumen
         std = np.std(data, ddof=1) * volumen
+        varianza = np.var(data, ddof=1) * (volumen ** 2)  # Varianza ajustada por volumen²
         stderr = std / np.sqrt(n)
 
         win = tk.Toplevel(self.root)
@@ -226,7 +230,7 @@ class MonteCarloSimulator:
             t_val = stats.t.ppf(0.5+conf/2, n-1)
             ic_lower = media - t_val*stderr
             ic_upper = media + t_val*stderr
-            lbl.config(text=f"Muestras: {n}\nMedia: {media:.6f}\nDesviación estándar: {std:.6f}\n"
+            lbl.config(text=f"Muestras: {n}\nMedia: {media:.6f}\nVarianza: {varianza:.6f}\nDesviación estándar: {std:.6f}\n"
                             f"Error estándar: {stderr:.6f}\nIntervalo de confianza {int(conf*100)}%: [{ic_lower:.6f}, {ic_upper:.6f}]")
             ax.clear()
             ax.hist(data*volumen, bins=min(30,max(5,n//5)), edgecolor='black', alpha=0.7, density=True)
@@ -371,9 +375,21 @@ class MonteCarloSimulator:
                     area = (b-a)*(d-c)
                     integral = area*np.mean(fx_vals)
 
+                    # Guardar datos para análisis estadístico
+                    self.double_integral_data = {
+                        'fx_vals': fx_vals,
+                        'area': area,
+                        'integral': integral,
+                        'xs': xs,
+                        'ys': ys,
+                        'f_str': f_str,
+                        'bounds': {'a': a, 'b': b, 'c': c, 'd': d},
+                        'N': N
+                    }
+
                     fig, ax = plt.subplots(figsize=(6,4))
                     canvas = FigureCanvasTkAgg(fig, master=win)
-                    canvas.get_tk_widget().grid(row=7,column=0,columnspan=8)
+                    canvas.get_tk_widget().grid(row=8,column=0,columnspan=8)
                     sc = ax.scatter(xs, ys, c=fx_vals, cmap='viridis', s=12)
                     fig.colorbar(sc, ax=ax, label='f(x,y)')
                     ax.set_title(f"Integral Doble ≈ {integral:.6f}")
@@ -383,8 +399,16 @@ class MonteCarloSimulator:
                 except Exception as e:
                     messagebox.showerror("Error", str(e))
 
-            ttk.Button(win,text="Calcular", command=calcular).grid(row=6,column=0,columnspan=3, pady=10)
-            ttk.Button(win,text="Limpiar entrada", command=lambda: entry_f.delete(0, tk.END)).grid(row=6,column=3,columnspan=2)
+            # -------- Análisis Estadístico para Integral Doble --------
+            def analisis_estadistico_doble():
+                if self.double_integral_data is None:
+                    messagebox.showwarning("Atención", "Primero calcule la integral doble.")
+                    return
+                self.ventana_estadistica_multiple(self.double_integral_data, "Análisis Estadístico - Integral Doble")
+
+            ttk.Button(win,text="Calcular", command=calcular).grid(row=6,column=0,columnspan=2, pady=10)
+            ttk.Button(win,text="Análisis Estadístico", command=analisis_estadistico_doble).grid(row=6,column=2,columnspan=2, pady=10)
+            ttk.Button(win,text="Limpiar entrada", command=lambda: entry_f.delete(0, tk.END)).grid(row=6,column=4,columnspan=2, pady=10)
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
@@ -460,10 +484,23 @@ class MonteCarloSimulator:
                     volume = (b-a)*(d-c)*(fz-e)
                     integral = volume * np.mean(fx_vals)
 
+                    # Guardar datos para análisis estadístico
+                    self.triple_integral_data = {
+                        'fx_vals': fx_vals,
+                        'volume': volume,
+                        'integral': integral,
+                        'xs': xs,
+                        'ys': ys,
+                        'zs': zs,
+                        'f_str': f_str,
+                        'bounds': {'a': a, 'b': b, 'c': c, 'd': d, 'e': e, 'f': fz},
+                        'N': N
+                    }
+
                     fig = plt.figure(figsize=(5,4))
                     ax = fig.add_subplot(111, projection='3d')
                     canvas = FigureCanvasTkAgg(fig, master=win)
-                    canvas.get_tk_widget().grid(row=7,column=0,columnspan=9)
+                    canvas.get_tk_widget().grid(row=8,column=0,columnspan=9)
                     sc = ax.scatter(xs, ys, zs, c=fx_vals, cmap='viridis', s=10)
                     fig.colorbar(sc, ax=ax, label='f(x,y,z)')
                     ax.set_title(f"Integral Triple ≈ {integral:.6f}")
@@ -472,8 +509,16 @@ class MonteCarloSimulator:
                 except Exception as e:
                     messagebox.showerror("Error", str(e))
 
-            ttk.Button(win, text="Calcular", command=calcular).grid(row=6,column=0,columnspan=3, pady=10)
-            ttk.Button(win, text="Limpiar entrada", command=lambda: entry_f.delete(0, tk.END)).grid(row=6,column=3,columnspan=2)
+            # -------- Análisis Estadístico para Integral Triple --------
+            def analisis_estadistico_triple():
+                if self.triple_integral_data is None:
+                    messagebox.showwarning("Atención", "Primero calcule la integral triple.")
+                    return
+                self.ventana_estadistica_multiple(self.triple_integral_data, "Análisis Estadístico - Integral Triple")
+
+            ttk.Button(win, text="Calcular", command=calcular).grid(row=6,column=0,columnspan=2, pady=10)
+            ttk.Button(win, text="Análisis Estadístico", command=analisis_estadistico_triple).grid(row=6,column=2,columnspan=2, pady=10)
+            ttk.Button(win, text="Limpiar entrada", command=lambda: entry_f.delete(0, tk.END)).grid(row=6,column=4,columnspan=2, pady=10)
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
@@ -503,6 +548,127 @@ class MonteCarloSimulator:
 
         tk.Button(win, text="Borrar", width=10, command=lambda: entry_target.delete(len(entry_target.get())-1, tk.END)).grid(row=r+1,column=0,columnspan=3,pady=5)
         tk.Button(win, text="Limpiar Todo", width=12, command=lambda: entry_target.delete(0, tk.END)).grid(row=r+1,column=3,columnspan=3,pady=5)
+
+    # -------------------- Análisis Estadístico para Integrales Múltiples --------------------
+    def ventana_estadistica_multiple(self, data, titulo):
+        """Ventana de análisis estadístico especializada para integrales dobles y triples"""
+        fx_vals = data['fx_vals']
+        n = len(fx_vals)
+        
+        # Determinar si es integral doble o triple
+        if 'area' in data:
+            # Integral doble
+            volumen = data['area']
+            integral_estimada = data['integral']
+            dimension_text = "Área"
+        else:
+            # Integral triple
+            volumen = data['volume']
+            integral_estimada = data['integral']
+            dimension_text = "Volumen"
+
+        # Estadísticas ajustadas por volumen
+        media = np.mean(fx_vals) * volumen
+        std = np.std(fx_vals, ddof=1) * volumen
+        varianza = np.var(fx_vals, ddof=1) * (volumen ** 2)  # Varianza ajustada por volumen²
+        stderr = std / np.sqrt(n)
+
+        win = tk.Toplevel(self.root)
+        win.title(titulo)
+        win.geometry("800x600")
+
+        # Frame para controles
+        frame_controls = ttk.LabelFrame(win, text="Configuración")
+        frame_controls.pack(fill="x", padx=10, pady=5)
+
+        ttk.Label(frame_controls, text="Nivel de confianza:").pack(side="left", padx=5)
+        confidence_var = tk.DoubleVar(value=95)
+        conf_box = ttk.Combobox(frame_controls, textvariable=confidence_var, values=[90,95,99], width=5)
+        conf_box.pack(side="left", padx=5)
+
+        # Frame para estadísticas
+        frame_stats = ttk.LabelFrame(win, text="Estadísticas")
+        frame_stats.pack(fill="x", padx=10, pady=5)
+
+        lbl_stats = tk.Label(frame_stats, justify="left", font=("Arial",10))
+        lbl_stats.pack(padx=10, pady=10)
+
+        # Frame para información adicional
+        frame_info = ttk.LabelFrame(win, text="Información de la Integral")
+        frame_info.pack(fill="x", padx=10, pady=5)
+
+        info_text = f"Función: {data['f_str']}\n"
+        info_text += f"Límites: "
+        bounds = data['bounds']
+        if 'area' in data:
+            info_text += f"x ∈ [{bounds['a']}, {bounds['b']}], y ∈ [{bounds['c']}, {bounds['d']}]\n"
+        else:
+            info_text += f"x ∈ [{bounds['a']}, {bounds['b']}], y ∈ [{bounds['c']}, {bounds['d']}], z ∈ [{bounds['e']}, {bounds['f']}]\n"
+        info_text += f"Muestras: {data['N']}\n"
+        info_text += f"{dimension_text}: {volumen:.6f}\n"
+        info_text += f"Integral estimada: {integral_estimada:.6f}"
+
+        lbl_info = tk.Label(frame_info, text=info_text, justify="left", font=("Arial",9))
+        lbl_info.pack(padx=10, pady=5)
+
+        # Frame para gráficos
+        frame_plots = ttk.LabelFrame(win, text="Distribución y Convergencia")
+        frame_plots.pack(fill="both", expand=True, padx=10, pady=5)
+
+        # Crear subplots
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
+        canvas = FigureCanvasTkAgg(fig, master=frame_plots)
+        canvas.get_tk_widget().pack(fill="both", expand=True)
+
+        def actualizar(event=None):
+            conf = confidence_var.get()/100
+            t_val = stats.t.ppf(0.5+conf/2, n-1)
+            ic_lower = media - t_val*stderr
+            ic_upper = media + t_val*stderr
+            
+            # Actualizar estadísticas
+            stats_text = f"Muestras: {n}\n"
+            stats_text += f"Media f(x,...): {np.mean(fx_vals):.6f}\n"
+            stats_text += f"Media ajustada: {media:.6f}\n"
+            stats_text += f"Varianza: {varianza:.6f}\n"
+            stats_text += f"Desviación estándar: {std:.6f}\n"
+            stats_text += f"Error estándar: {stderr:.6f}\n"
+            stats_text += f"Intervalo de confianza {int(conf*100)}%:\n[{ic_lower:.6f}, {ic_upper:.6f}]"
+            lbl_stats.config(text=stats_text)
+            
+            # Gráfico 1: Distribución
+            ax1.clear()
+            ax1.hist(fx_vals*volumen, bins=min(30,max(5,n//10)), edgecolor='black', alpha=0.7, density=True)
+            x_vals = np.linspace(min(fx_vals)*volumen, max(fx_vals)*volumen, 200)
+            y_norm = stats.norm.pdf(x_vals, media, std)
+            ax1.plot(x_vals, y_norm, color='orange', linewidth=2, label='Distribución Normal')
+            ax1.axvline(media, color='blue', linestyle='-', linewidth=2, label='Media')
+            ax1.axvline(ic_lower, color='red', linestyle='--', linewidth=2, label=f'IC {int(conf*100)}%')
+            ax1.axvline(ic_upper, color='red', linestyle='--', linewidth=2)
+            ax1.set_title("Distribución de f(x,...) × Volumen")
+            ax1.set_xlabel("Valor ajustado")
+            ax1.set_ylabel("Densidad")
+            ax1.grid(True, alpha=0.3)
+            ax1.legend()
+            
+            # Gráfico 2: Convergencia
+            ax2.clear()
+            cum_avg = np.cumsum(fx_vals)/np.arange(1, len(fx_vals)+1)
+            cum_avg_vol = cum_avg * volumen
+            ax2.plot(cum_avg_vol, label="Promedio acumulado", color='blue')
+            ax2.axhline(media, color="red", linestyle="--", label="Media final")
+            ax2.fill_between(range(len(cum_avg)), ic_lower, ic_upper, 
+                           color='red', alpha=0.2, label=f'IC {int(conf*100)}%')
+            ax2.set_xlabel("Número de muestras")
+            ax2.set_ylabel("Estimación")
+            ax2.set_title("Convergencia Monte Carlo")
+            ax2.legend()
+            ax2.grid(True, alpha=0.3)
+            
+            canvas.draw()
+
+        conf_box.bind("<<ComboboxSelected>>", actualizar)
+        actualizar()
 
 if __name__=="__main__":
     root = tk.Tk()
