@@ -149,32 +149,28 @@ export default function NavbarComponent() {
               }}
             >
               <DropdownItem
-                key="trapezoidal"
+                key="newton-cotes"
                 description="ACME scales apps based on demand and load"
+                href="/numericalIntegration/newtonCotes"
                 startContent={icons.scale}
               >
-                Integración por trapecios
-              </DropdownItem>
-              <DropdownItem
-                key="trapezoidal"
-                description="ACME scales apps based on demand and load"
-                startContent={icons.scale}
-              >
-                Integración por trapecios
-              </DropdownItem>
-              <DropdownItem
-                key="simpson"
-                description="Real-time metrics to debug issues"
-                startContent={icons.activity}
-              >
-                Integración por Simpson
+                Newton-Cotes
               </DropdownItem>
               <DropdownItem
                 key="monte-carlo"
+                description="ACME scales apps based on demand and load"
+                href="/numericalIntegration/monteCarlo"
+                startContent={icons.scale}
+              >
+                Integración por trapecios
+              </DropdownItem>
+              <DropdownItem
+                key="runge-kutta"
                 description="Real-time metrics to debug issues"
+                href="/numericalIntegration/rungeKutta"
                 startContent={icons.activity}
               >
-                Integración por Monte Carlo
+                Runge-Kutta
               </DropdownItem>
             </DropdownMenu>
           </Dropdown>

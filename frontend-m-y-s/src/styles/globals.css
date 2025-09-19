@@ -1,6 +1,10 @@
 @import "tailwindcss";
 @config "../../tailwind.config.js";
 
+* {
+  scrollbar-width: thin;
+}
+
 /* Global Dark Background */
 html,
 body {

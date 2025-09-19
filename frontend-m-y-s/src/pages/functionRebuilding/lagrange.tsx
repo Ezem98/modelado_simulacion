@@ -39,7 +39,7 @@ import {
 
 type LagrangeResponse = {
   metodo: "lagrange";
-  resultado: {
+  extras: {
     polinomio: { expr: string; latex: string };
     bases: { i: number; expr: string; latex: string }[];
     tabla: { x: number; y: number; "P(x)": number }[];
@@ -75,12 +75,10 @@ export default function LagrangePage() {
   const { loading, error, data, execute } = useApiCall<LagrangeResponse>();
 
   // Curvas
-  const pCurve = data?.resultado.grafico.p_curve ?? [];
-  const fCurve = data?.resultado.grafico.f_curve ?? [];
-  const pts = data?.resultado.grafico.points ?? [];
-  const xRange = data?.resultado.grafico.x_range as
-    | [number, number]
-    | undefined;
+  const pCurve = data?.extras.grafico.p_curve ?? [];
+  const fCurve = data?.extras.grafico.f_curve ?? [];
+  const pts = data?.extras.grafico.points ?? [];
+  const xRange = data?.extras.grafico.x_range as [number, number] | undefined;
 
   const fullRange = useMemo<[number, number]>(
     () => xRange ?? [-1, 1],
@@ -472,7 +470,7 @@ export default function LagrangePage() {
                     label="Grado del polinomio"
                     labelPlacement="outside-top"
                     radius="sm"
-                    value={(data.resultado.bases.length - 1).toString()}
+                    value={(data.extras.bases.length - 1).toString()}
                     variant="bordered"
                   />
                   <Input
@@ -481,12 +479,12 @@ export default function LagrangePage() {
                     label="Número de puntos"
                     labelPlacement="outside-top"
                     radius="sm"
-                    value={data.resultado.bases.length.toString()}
+                    value={data.extras.bases.length.toString()}
                     variant="bordered"
                   />
                 </div>
 
-                {data.resultado.errores && (
+                {data.extras.errores && (
                   <div className="flex gap-4">
                     <Input
                       readOnly
@@ -495,9 +493,8 @@ export default function LagrangePage() {
                       labelPlacement="outside-top"
                       radius="sm"
                       value={
-                        data.resultado.errores.max_abs_error?.toExponential(
-                          6
-                        ) ?? "N/A"
+                        data.extras.errores.max_abs_error?.toExponential(6) ??
+                        "N/A"
                       }
                       variant="bordered"
                     />
@@ -508,7 +505,7 @@ export default function LagrangePage() {
                       labelPlacement="outside-top"
                       radius="sm"
                       value={
-                        data.resultado.errores.rmse?.toExponential(6) ?? "N/A"
+                        data.extras.errores.rmse?.toExponential(6) ?? "N/A"
                       }
                       variant="bordered"
                     />
@@ -521,7 +518,7 @@ export default function LagrangePage() {
                   label="Polinomio P(x)"
                   labelPlacement="outside-top"
                   radius="sm"
-                  value={data.resultado.polinomio.expr}
+                  value={data.extras.polinomio.expr}
                   variant="bordered"
                 />
 
@@ -531,7 +528,7 @@ export default function LagrangePage() {
                     Bases de Lagrange Lᵢ(x)
                   </h3>
                   <div className="flex flex-col gap-2 h-fit pb-4">
-                    {data.resultado.bases.map((base) => (
+                    {data.extras.bases.map((base) => (
                       <Card
                         key={base.i}
                         className="border-1 border-gray-200 shadow-sm"
@@ -635,7 +632,7 @@ export default function LagrangePage() {
                   P(x)
                 </TableColumn>
               </TableHeader>
-              <TableBody items={data?.resultado.tabla ?? []}>
+              <TableBody items={data?.extras.tabla ?? []}>
                 {(row) => (
                   <TableRow key={`${row.x}`}>
                     <TableCell>{row.x}</TableCell>

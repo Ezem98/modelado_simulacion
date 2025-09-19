@@ -5,6 +5,7 @@ import BinarySearchPage from "@/pages/numericMethods/binarySearch";
 import LagrangePage from "./pages/functionRebuilding/lagrange";
 import FixedPointPage from "./pages/numericMethods/fixedPoint";
 import NewtonRaphsonPage from "./pages/numericMethods/newtonRaphson";
+import NewtonCotesPage from "./pages/numericalIntegration/newtonCotes";
 
 function App() {
   return (
@@ -20,6 +21,10 @@ function App() {
         path="/numericMethods/newtonRaphson"
       />
       <Route element={<LagrangePage />} path="/functionRebuilding/lagrange" />
+      <Route
+        element={<NewtonCotesPage />}
+        path="/numericalIntegration/newtonCotes"
+      />
     </Routes>
   );
 }
